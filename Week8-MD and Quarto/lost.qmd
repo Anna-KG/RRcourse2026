@@ -1,0 +1,162 @@
+---
+title: "Lost - Viewership Report"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    fig-width: 9
+    fig-height: 5
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## About the Show
+
+*Lost* is an American drama television series that aired on ABC from
+September 22, 2004 to May 23, 2010. Created by J. J. Abrams, Damon
+Lindelof, and Jeffrey Lieber, the show follows the survivors of a
+commercial plane crash *Oceanic Airlines Flight 815*, who are stranded
+on a mysterious tropical island. The series blends elements of science
+fiction, supernatural drama, and adventure, exploring both the
+characters' lives before the crash and their struggles to survive and
+escape.
+
+*Lost* ran for 6 seasons and 121 episodes, and became one of the most
+acclaimed and discussed television series of the 2000s.
+
+![Main characters of *Lost*](Main_characters_of_Lost.jpg)
+
+------------------------------------------------------------------------
+
+## Viewership Data
+
+```{r}
+library(tidyverse)
+
+# Episode-level viewership data (millions of U.S. viewers)
+lost_data <- list(
+  `1` = c(18.65,17.00,16.54,18.16,16.82,16.83,18.73,18.44,17.64,17.15,
+           18.88,21.59,20.81,19.69,19.48,17.88,19.49,18.85,17.75,17.12,
+           17.20,17.10,18.62,20.71,20.71),
+  `2` = c(23.47,23.17,22.38,21.67,21.38,20.01,21.87,19.29,21.54,20.56,
+           19.13,19.05,18.74,18.20,16.43,16.06,16.21,16.38,15.68,15.56,
+           16.35,14.67,17.84,17.84),
+  `3` = c(18.82,16.89,16.31,17.09,16.07,17.15,14.49,12.84,12.95,12.78,
+           12.45,12.48,12.22,11.52,11.66,12.09,12.08,11.86,12.33,12.11,
+           12.32,13.86,13.86),
+  `4` = c(16.14,15.29,13.76,13.65,12.89,13.01,12.08,11.46,12.08,10.73,
+           10.78,10.96,12.30,12.30),
+  `5` = c(11.35,11.35,11.23,11.01,9.82,11.41,10.05,10.65,9.40,9.04,
+           9.57,8.57,9.23,9.04,8.70,9.43,9.43),
+  `6` = c(12.09,12.09,11.05,9.82,9.95,9.29,9.49,8.87,9.31,10.13,
+           9.55,9.48,9.53,9.59,10.32,10.47,13.57,13.57)
+)
+
+# Build episode-level dataframe
+df_episodes <- map_dfr(names(lost_data), function(s) {
+  tibble(
+    season = as.integer(s),
+    episode = seq_along(lost_data[[s]]),
+    viewers = lost_data[[s]]
+  )
+}) %>%
+  mutate(
+    season_label = paste("Season", season),
+    ep_global = cumsum(c(0, head(rle(season)$lengths * 0, -1))) + row_number()
+  )
+
+# Season averages
+season_avg <- df_episodes %>%
+  group_by(season) %>%
+  summarise(avg = mean(viewers), .groups = "drop")
+```
+
+### Season Averages (millions of U.S. viewers)
+
+```{r}
+season_avg %>%
+  rename(Season = season, `Average viewers (M)` = avg) %>%
+  mutate(`Average viewers (M)` = round(`Average viewers (M)`, 2)) %>%
+  knitr::kable()
+```
+
+------------------------------------------------------------------------
+
+## Viewership Over Time
+
+```{r}
+ggplot(df_episodes, aes(x = interaction(episode, season, sep = "-"), y = viewers,
+                         color = factor(season), group = factor(season))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.2) +
+  scale_color_brewer(palette = "Dark2", name = "Season") +
+  labs(
+    title = "Lost — U.S. Viewership per Episode",
+    x = "Episode (within season)",
+    y = "Viewers (millions)"
+  ) +
+  facet_wrap(~season_label, scales = "free_x", nrow = 2) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+```
+
+------------------------------------------------------------------------
+
+## Season-to-Season Change in Average Viewership
+
+```{r}
+season_avg_change <- season_avg %>%
+  mutate(change = avg - lag(avg))
+
+ggplot(season_avg_change, aes(x = factor(season), y = avg, group = 1)) +
+  geom_line(color = "#2c7bb6", linewidth = 1.2) +
+  geom_point(size = 4, color = "#2c7bb6") +
+  geom_text(aes(label = round(avg, 2)), vjust = -1, size = 3.5) +
+  labs(
+    title = "Lost — Average Viewership per Season",
+    x = "Season",
+    y = "Average viewers (millions)"
+  ) +
+  ylim(8, 22) +
+  theme_minimal(base_size = 13)
+```
+
+------------------------------------------------------------------------
+
+## Observed Trends
+
+```{r}
+s1 <- round(season_avg$avg[1], 2)
+s2 <- round(season_avg$avg[2], 2)
+s3 <- round(season_avg$avg[3], 2)
+s6 <- round(season_avg$avg[6], 2)
+drop_s1_s3 <- round(s1 - s3, 2)
+drop_s2_s6 <- round(s2 - s6, 2)
+rise_s5_s6 <- round(s6 - season_avg$avg[5], 2)
+```
+
+*Lost* debuted to strong ratings, averaging `r s1` million viewers in
+Season 1. Viewership peaked in **Season 2** with an average of `r s2`
+million viewers, driven by intense fan interest and critical acclaim.
+
+From Season 2 onward, the show experienced a significant decline:
+average viewership fell by `r drop_s1_s3` million between Seasons 1 and
+3, and by `r drop_s2_s6` million between Seasons 2 and 6. This drop
+likely reflected growing audience frustration with unresolved storylines
+and the show's increasing complexity.
+
+Season 6, the final season, saw a modest recovery of `r rise_s5_s6`
+million viewers compared to Season 5 - likely due to viewers returning
+to see how the series concluded - averaging `r s6` million. The series
+finale drew notably high numbers, reflecting a last surge of interest.
+
+------------------------------------------------------------------------
+
+*Source: [Wikipedia — Lost (TV
+series)](https://en.wikipedia.org/wiki/Lost_(TV_series))*
